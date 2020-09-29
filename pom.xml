@@ -98,12 +98,6 @@
 		</dependency>
 
 		<dependency>
-			<groupId>io.stackoverflow.questions</groupId>
-			<artifactId>spring-core</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-
-		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-logging</artifactId>
 		</dependency>
