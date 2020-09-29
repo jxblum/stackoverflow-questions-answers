@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<artifactId>answers</artifactId>
+		<groupId>io.stackoverflow.questions</groupId>
+		<version>1.0.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>spring-core</artifactId>
+	<packaging>jar</packaging>
+
+	<name>spring-core</name>
+	<description>Provides basic and essential Spring beans and components to build applications.</description>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-commons</artifactId>
+		</dependency>
+
+	</dependencies>
+
+</project>
