@@ -12,7 +12,7 @@
 	</parent>
 
 	<artifactId>spring-cache</artifactId>
-	<packaging>pom</packaging>
+	<packaging>jar</packaging>
 
 	<name>spring-cache-answers</name>
 	<description>This module provides answers and examples for spring-cache questions.</description>
