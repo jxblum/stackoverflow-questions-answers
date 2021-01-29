@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  */
-
 package io.stackoverflow.questions.springcache;
 
 import static org.assertj.core.api.Assertions.assertThat;
