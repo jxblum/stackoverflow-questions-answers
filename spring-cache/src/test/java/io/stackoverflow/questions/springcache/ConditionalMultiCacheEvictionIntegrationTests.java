@@ -181,6 +181,7 @@ public class ConditionalMultiCacheEvictionIntegrationTests {
 
 		@Cacheable(cacheNames = { "Admin", "Users", "Guests" },
 			key = "#user.name", condition = "#user != null && #user.name != null")
+			//key = "#user.name", condition = "#user != null && #user.name != null && #nonExistingParameter != null")
 		public User process(User user) {
 			this.processCalled.set(true);
 			return user;
