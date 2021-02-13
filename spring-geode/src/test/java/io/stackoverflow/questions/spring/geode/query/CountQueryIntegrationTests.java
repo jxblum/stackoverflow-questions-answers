@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-package io.stackoverflow.questions.apache.geode.query;
+package io.stackoverflow.questions.spring.geode.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.gemfire.util.RuntimeExceptionFactory.newIllegalStateException;
