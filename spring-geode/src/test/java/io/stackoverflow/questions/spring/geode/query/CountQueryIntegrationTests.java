@@ -64,6 +64,7 @@ import lombok.NonNull;
  * @see org.springframework.data.repository.CrudRepository
  * @see org.springframework.test.context.ContextConfiguration
  * @see org.springframework.test.context.junit4.SpringRunner
+ * @see <a href="https://stackoverflow.com/questions/66148859/gemfire-oql-query-how-do-i-use-count-of-a-select-statement-in-the-where-condit">Gemfire OQL Query - How do I use count of a SELECT statement in the Where Condition?</a>
  * @since 1.0.0
  */
 @RunWith(SpringRunner.class)
