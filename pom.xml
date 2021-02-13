@@ -44,8 +44,10 @@
 	</developers>
 
 	<modules>
+		<module>core-java</module>
 		<module>spring-core</module>
 		<module>spring-cache</module>
+		<module>spring-geode</module>
 	</modules>
 
 	<properties>
