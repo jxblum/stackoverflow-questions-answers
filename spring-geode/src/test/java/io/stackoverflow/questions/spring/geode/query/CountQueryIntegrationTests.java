@@ -19,11 +19,16 @@ package io.stackoverflow.questions.spring.geode.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.gemfire.util.RuntimeExceptionFactory.newIllegalStateException;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -35,6 +40,7 @@ import org.springframework.data.gemfire.config.annotation.ClientCacheApplication
 import org.springframework.data.gemfire.config.annotation.EnableEntityDefinedRegions;
 import org.springframework.data.gemfire.repository.Query;
 import org.springframework.data.gemfire.repository.config.EnableGemfireRepositories;
+import org.springframework.data.gemfire.repository.query.annotation.Trace;
 import org.springframework.data.gemfire.util.CollectionUtils;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.test.context.ContextConfiguration;
@@ -49,6 +55,15 @@ import lombok.NonNull;
  * for a count of some {@link Object} value equal to one.
  *
  * @author John Blum
+ * @see org.junit.Test
+ * @see org.apache.geode.cache.query.Struct
+ * @see org.springframework.data.gemfire.config.annotation.ClientCacheApplication
+ * @see org.springframework.data.gemfire.config.annotation.EnableEntityDefinedRegions
+ * @see org.springframework.data.gemfire.repository.Query
+ * @see org.springframework.data.gemfire.repository.config.EnableGemfireRepositories
+ * @see org.springframework.data.repository.CrudRepository
+ * @see org.springframework.test.context.ContextConfiguration
+ * @see org.springframework.test.context.junit4.SpringRunner
  * @since 1.0.0
  */
 @RunWith(SpringRunner.class)
@@ -69,6 +84,25 @@ public class CountQueryIntegrationTests {
 			.findFirst()
 			.orElseThrow(() -> newIllegalStateException("Failed to find Struct with ID [%1$s] in List %2$s",
 				id, structs));
+	}
+
+	private @NonNull Set<Long> findIds(@NonNull List<Struct> structs, @NonNull Predicate<Struct> idFilter) {
+
+		return CollectionUtils.nullSafeList(structs).stream()
+			.filter(Objects::nonNull)
+			.filter(idFilter)
+			.map(struct -> struct.get("id"))
+			.map(String::valueOf)
+			.map(Long::parseLong)
+			.collect(Collectors.toSet());
+	}
+
+	private @NonNull Set<Long> findDuplicateIds(List<Struct> structs) {
+		return findIds(structs, struct -> Integer.parseInt(String.valueOf(struct.get("cnt"))) > 1);
+	}
+
+	private @NonNull Set<Long> findUniqueIds(List<Struct> structs) {
+		return findIds(structs, struct -> Integer.parseInt(String.valueOf(struct.get("cnt"))) == 1);
 	}
 
 	@Before
@@ -94,7 +128,7 @@ public class CountQueryIntegrationTests {
 	@Test
 	public void countingUsersByIdIsCorrect() {
 
-		List<Struct> structs = this.userRepository.countUserById();
+		List<Struct> structs = this.userRepository.countUsersById();
 
 		assertThat(structs).isNotNull();
 		assertThat(structs).hasSize(3);
@@ -107,6 +141,7 @@ public class CountQueryIntegrationTests {
 	}
 
 	@Test
+	@Ignore
 	public void duplicateCountQueryIsCorrect() {
 
 		List<User> usersWithDuplicateId = this.userRepository.findUsersWithDuplicateId();
@@ -117,6 +152,7 @@ public class CountQueryIntegrationTests {
 	}
 
 	@Test
+	@Ignore
 	public void uniqueCountQueryIsCorrect() {
 
 		List<User> usersWithUniqueId = this.userRepository.findUsersWithUniqueId();
@@ -124,6 +160,48 @@ public class CountQueryIntegrationTests {
 		assertThat(usersWithUniqueId).isNotNull();
 		assertThat(usersWithUniqueId).hasSize(2);
 		assertThat(usersWithUniqueId).containsExactly(User.as("jonDoe"), User.as("sourDoe"));
+	}
+
+	@Test
+	public void findsUsersByDuplicateIds() {
+
+		List<Struct> userCountById = this.userRepository.countUsersById();
+
+		assertThat(userCountById).isNotNull();
+		assertThat(userCountById).hasSize(3);
+
+		Set<Long> duplicateUserIds = findDuplicateIds(userCountById);
+
+		assertThat(duplicateUserIds).isNotNull();
+		assertThat(duplicateUserIds).hasSize(1);
+		assertThat(duplicateUserIds).containsExactlyInAnyOrder(2L);
+
+		List<User> users = this.userRepository.findByIdInOrderByName(duplicateUserIds);
+
+		assertThat(users).isNotNull();
+		assertThat(users).hasSize(3);
+		assertThat(users).containsExactly(User.as("cookieDoe"), User.as("janeDoe"), User.as("pieDoe"));
+	}
+
+	@Test
+	public void findsUsersByUniqueIds() {
+
+		List<Struct> userCountById = this.userRepository.countUsersById();
+
+		assertThat(userCountById).isNotNull();
+		assertThat(userCountById).hasSize(3);
+
+		Set<Long> uniqueUserIds = findUniqueIds(userCountById);
+
+		assertThat(uniqueUserIds).isNotNull();
+		assertThat(uniqueUserIds).hasSize(2);
+		assertThat(uniqueUserIds).containsExactlyInAnyOrder(1L, 3L);
+
+		List<User> users = this.userRepository.findByIdInOrderByName(uniqueUserIds);
+
+		assertThat(users).isNotNull();
+		assertThat(users).hasSize(2);
+		assertThat(users).containsExactly(User.as("jonDoe"), User.as("sourDoe"));
 	}
 
 	@ClientCacheApplication
@@ -138,12 +216,16 @@ public class CountQueryIntegrationTests {
 
 interface UserRepository extends CrudRepository<User, String> {
 
+	@Trace
+	@Query("SELECT u FROM /Users u WHERE u.id IN ($1) ORDER BY u.name ASC")
+	List<User> findByIdInOrderByName(Collection<Long> ids);
+
 	//@Query("SELECT x.id, count(*) AS cnt FROM /Users x WHERE count(*) = 1 GROUP BY x.id")
 	//@Query("SELECT x.id FROM /Users x WHERE count(*) = 1 GROUP BY x.id")
 	//@Query("SELECT x.id, count(*) AS cnt FROM /Users x WHERE cnt = 1 GROUP BY x.id")
 	//@Query("SELECT x.id, count(*) AS cnt FROM /Users x WHERE cnt > 1 GROUP BY x.id")
 	@Query("SELECT x.id, count(*) AS cnt FROM /Users x GROUP BY x.id")
-	List<Struct> countUserById();
+	List<Struct> countUsersById();
 
 	@Query("SELECT DISTINCT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
 		+ " WHERE v.cnt > 1 AND u.id = v.id ORDER BY u.name ASC")
