@@ -16,8 +16,7 @@
 
     <name>core-java</name>
     <description>
-        Core Java (Java SE) module to test and assert the behavior of the core Java Runtime (JRE).
+        Core Java (Java SE) module to test and assert the behavior of the core Java Runtime (JRE) and API (classes).
     </description>
-
 
 </project>
