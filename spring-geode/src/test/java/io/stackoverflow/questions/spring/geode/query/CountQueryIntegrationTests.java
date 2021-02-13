@@ -41,7 +41,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.ObjectUtils;
 
-import io.stackoverflow.questions.app.model.User;
+import io.stackoverflow.questions.spring.geode.app.model.User;
 import lombok.NonNull;
 
 /**

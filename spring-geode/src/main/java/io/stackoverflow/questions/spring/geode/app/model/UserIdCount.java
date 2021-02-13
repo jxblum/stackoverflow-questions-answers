@@ -14,42 +14,29 @@
  * limitations under the License.
  *
  */
-package io.stackoverflow.questions.app.model;
+package io.stackoverflow.questions.spring.geode.app.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.gemfire.mapping.annotation.Region;
-
-import lombok.AccessLevel;
-import lombok.EqualsAndHashCode;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.ToString;
 
 /**
- * Abstract Data Type (ADT) modeling a user.
+ * Query Projection Type consisting of the {@link User} {@link User#getId() ID} and a count of {@link User Users}
+ * having the {@link User#getId() ID}.
  *
  * @author John Blum
- * @see org.springframework.data.annotation.Id
- * @see org.springframework.data.gemfire.mapping.annotation.Region
+ * @see User
  * @since 1.0.0
  */
 @Getter
-@ToString
-@Region("Users")
-@EqualsAndHashCode(of = "name")
-@RequiredArgsConstructor(staticName = "as")
-public class User {
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserIdCount {
 
-	@Setter(AccessLevel.PRIVATE)
 	private Long id;
 
-	@Id @NonNull
-	private final String name;
+	private Integer count;
 
-	public User identifiedBy(Long id) {
-		setId(id);
-		return this;
-	}
 }
