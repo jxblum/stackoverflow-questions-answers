@@ -54,7 +54,7 @@ import lombok.NonNull;
 @RunWith(SpringRunner.class)
 @ContextConfiguration
 @SuppressWarnings("unused")
-public class QueryCountEqualToOneIntegrationTests {
+public class CountQueryIntegrationTests {
 
 	private static final AtomicBoolean initialize = new AtomicBoolean(false);
 
@@ -151,8 +151,8 @@ interface UserRepository extends CrudRepository<User, String> {
 	@Query("IMPORT io.stackoverflow.questions.app.model.UserIdCount;"
 		+ " SELECT DISTINCT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v TYPE UserIdCount"
 		+ " WHERE v.cnt = 1 AND u.id = v.id ORDER BY u.name ASC")
-		//@Query("SELECT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
-		//	+ " WHERE v.cnt = 1 AND u.id = v.id ORDER BY u.name ASC")
+	//@Query("SELECT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
+	//	+ " WHERE v.cnt = 1 AND u.id = v.id ORDER BY u.name ASC")
 	List<User> findUsersWithUniqueId();
 
 }
