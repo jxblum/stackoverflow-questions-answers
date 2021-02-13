@@ -138,15 +138,21 @@ public class QueryCountEqualToOneIntegrationTests {
 
 interface UserRepository extends CrudRepository<User, String> {
 
+	//@Query("SELECT x.id, count(*) AS cnt FROM /Users x WHERE count(*) = 1 GROUP BY x.id")
+	//@Query("SELECT x.id FROM /Users x WHERE count(*) = 1 GROUP BY x.id")
+	//@Query("SELECT x.id, count(*) AS cnt FROM /Users x WHERE cnt = 1 GROUP BY x.id")
 	@Query("SELECT x.id, count(*) AS cnt FROM /Users x GROUP BY x.id")
 	List<Struct> countUserById();
 
-	@Query("SELECT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
-		+ " WHERE v.cnt = 1 AND u.id = v.id ORDER BY u.name ASC")
-	List<User> findUsersWithUniqueId();
-
-	@Query("SELECT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
+	@Query("SELECT DISTINCT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
 		+ " WHERE v.cnt > 1 AND u.id = v.id ORDER BY u.name ASC")
 	List<User> findUsersWithDuplicateId();
+
+	@Query("IMPORT io.stackoverflow.questions.app.model.UserIdCount;"
+		+ " SELECT DISTINCT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v TYPE UserIdCount"
+		+ " WHERE v.cnt = 1 AND u.id = v.id ORDER BY u.name ASC")
+		//@Query("SELECT u FROM /Users u, (SELECT DISTINCT x.id AS id, count(*) AS cnt FROM /Users x GROUP BY x.id) v"
+		//	+ " WHERE v.cnt = 1 AND u.id = v.id ORDER BY u.name ASC")
+	List<User> findUsersWithUniqueId();
 
 }
