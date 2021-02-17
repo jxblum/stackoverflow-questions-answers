@@ -29,6 +29,6 @@ import example.app.model.User;
  * @see example.app.model.User
  * @since 1.0.0
  */
-public interface UserRepository extends CrudRepository<User, Long> {
+public interface UserRepository extends CrudRepository<User, Integer> {
 
 }

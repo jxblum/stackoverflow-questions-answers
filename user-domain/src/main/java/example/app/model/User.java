@@ -45,12 +45,12 @@ public class User {
 
 	@Id
 	@Setter(AccessLevel.PROTECTED)
-	private Long id;
+	private Integer id;
 
 	@lombok.NonNull
 	private String name;
 
-	public @NonNull User identifiedBy(@NonNull Long id) {
+	public @NonNull User identifiedBy(@NonNull Integer id) {
 		Assert.notNull(id, "ID is required");
 		setId(id);
 		return this;

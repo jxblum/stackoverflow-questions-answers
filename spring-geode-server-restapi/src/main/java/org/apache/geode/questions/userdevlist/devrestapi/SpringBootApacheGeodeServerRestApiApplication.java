@@ -72,8 +72,8 @@ public class SpringBootApacheGeodeServerRestApiApplication {
 
 		return args -> {
 
-			userRepository.save(User.as("jonDoe").identifiedBy(1L));
-			userRepository.save(User.as("janeDoe").identifiedBy(2L));
+			userRepository.save(User.as("jonDoe").identifiedBy(1));
+			userRepository.save(User.as("janeDoe").identifiedBy(2));
 
 			assertThat(userRepository.count()).isEqualTo(2L);
 
