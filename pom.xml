@@ -48,6 +48,8 @@
 		<module>spring-core</module>
 		<module>spring-cache</module>
 		<module>spring-geode</module>
+		<module>spring-geode-server-restapi</module>
+		<module>user-domain</module>
 	</modules>
 
 	<properties>
