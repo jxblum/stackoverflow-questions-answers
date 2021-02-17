@@ -1,0 +1,3 @@
+#!/bin/bash
+
+mvn -P geode-web-api-profile spring-boot:run
