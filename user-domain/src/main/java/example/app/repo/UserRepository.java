@@ -16,6 +16,8 @@
  */
 package example.app.repo;
 
+import java.util.List;
+
 import org.springframework.data.repository.CrudRepository;
 
 import example.app.model.User;
@@ -29,6 +31,9 @@ import example.app.model.User;
  * @see example.app.model.User
  * @since 1.0.0
  */
+@SuppressWarnings("unused")
 public interface UserRepository extends CrudRepository<User, Integer> {
+
+	List<User> findByNameLikeOrderByNameAsc(String nameWildcard);
 
 }
