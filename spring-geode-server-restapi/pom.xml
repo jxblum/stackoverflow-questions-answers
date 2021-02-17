@@ -35,6 +35,7 @@
             <groupId>org.apache.geode</groupId>
             <artifactId>geode-http-service</artifactId>
             <version>${apache-geode.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
     </dependencies>
