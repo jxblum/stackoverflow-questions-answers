@@ -72,10 +72,15 @@ public class SpringBootApacheGeodeServerRestApiApplication {
 
 		return args -> {
 
-			userRepository.save(User.as("jonDoe").identifiedBy(1));
-			userRepository.save(User.as("janeDoe").identifiedBy(2));
+			User jonDoe = User.as("jonDoe").identifiedBy(1);
+			User janeDoe = User.as("janeDoe").identifiedBy(2);
+
+			userRepository.save(jonDoe);
+			userRepository.save(janeDoe);
 
 			assertThat(userRepository.count()).isEqualTo(2L);
+			assertThat(userRepository.findByNameLikeOrderByNameAsc("%Doe"))
+				.containsExactly(janeDoe, jonDoe);
 
 			System.err.printf("%s is running!%n", getClass().getSimpleName());
 		};
