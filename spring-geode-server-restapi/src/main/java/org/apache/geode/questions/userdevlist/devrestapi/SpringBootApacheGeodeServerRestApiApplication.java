@@ -58,7 +58,7 @@ import example.app.repo.UserRepository;
 @SuppressWarnings("unused")
 public class SpringBootApacheGeodeServerRestApiApplication {
 
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 
 		configureGemFireHomeSystemProperty();
 
