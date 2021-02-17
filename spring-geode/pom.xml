@@ -12,10 +12,7 @@
     </parent>
 
     <artifactId>spring-geode</artifactId>
-
-    <properties>
-        <spring-geode.version>1.4.2</spring-geode.version>
-    </properties>
+    <packaging>jar</packaging>
 
     <dependencyManagement>
         <dependencies>
@@ -30,10 +27,18 @@
     </dependencyManagement>
 
     <dependencies>
+
         <dependency>
             <groupId>org.springframework.geode</groupId>
             <artifactId>spring-geode-starter</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.springframework.geode</groupId>
+            <artifactId>spring-geode-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>
