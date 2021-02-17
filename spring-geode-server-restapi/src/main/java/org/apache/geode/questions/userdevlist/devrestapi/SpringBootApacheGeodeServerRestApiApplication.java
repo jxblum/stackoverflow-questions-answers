@@ -60,17 +60,11 @@ public class SpringBootApacheGeodeServerRestApiApplication {
 
 	public static void main(String[] args) {
 
-		configureGemFireHomeSystemProperty();
-
 		new SpringApplicationBuilder(SpringBootApacheGeodeServerRestApiApplication.class)
 			.web(WebApplicationType.NONE)
 			.profiles("dev-rest-api")
 			.build()
 			.run(args);
-	}
-
-	private static void configureGemFireHomeSystemProperty() {
-		System.setProperty("gemfire.home", "/Users/jblum/pivdev/apache-geode-1.13.1");
 	}
 
 	@Bean
