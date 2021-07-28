@@ -17,7 +17,18 @@
 	<name>spring-cache-answers</name>
 	<description>This module provides answers and examples for spring-cache questions.</description>
 
+	<properties>
+		<multithreadedtc.version>1.01</multithreadedtc.version>
+	</properties>
+
 	<dependencies>
+
+		<dependency>
+			<groupId>edu.umd.cs.mtc</groupId>
+			<artifactId>multithreadedtc</artifactId>
+			<version>1.01</version>
+			<scope>test</scope>
+		</dependency>
 
 		<dependency>
 			<groupId>io.stackoverflow.questions</groupId>
