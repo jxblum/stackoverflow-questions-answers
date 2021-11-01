@@ -95,7 +95,7 @@ public class PdxSerializationOfEntityWithNonDefaultConstructor {
 	@EnableEntityDefinedRegions(basePackageClasses = CompositeValue.class,
 		serverRegionShortcut = RegionShortcut.PARTITION)
 	@EnableGemfireRepositories(basePackageClasses = CompositeValueRepository.class)
-	@Import({ GemFireSerializationConfiguration.class, SpringSerializationConfiguration.class })
+	@Import({ GemFireSerializationConfiguration.class, GemFireCustomPdxSerializationConfiguration.class, SpringSerializationConfiguration.class })
 	static class TestConfiguration { }
 
 	@Configuration
