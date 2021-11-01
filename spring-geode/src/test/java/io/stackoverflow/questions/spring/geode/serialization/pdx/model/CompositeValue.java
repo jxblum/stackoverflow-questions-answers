@@ -47,7 +47,7 @@ public class CompositeValue {
 	private final String valueTwo;
 
 	@Setter
-	private Object valueThree;
+	private volatile Object valueThree;
 
 	/*
 	public CompositeValue() {
