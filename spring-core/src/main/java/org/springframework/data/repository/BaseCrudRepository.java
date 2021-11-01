@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  */
-
 package org.springframework.data.repository;
 
 import java.util.Collections;
@@ -125,6 +124,14 @@ public abstract class BaseCrudRepository<T, ID> implements CrudRepository<T, ID>
 	 * @inheritDoc
 	 */
 	@Override
+	public void deleteAllById(Iterable<? extends ID> ids) {
+		ids.forEach(this::deleteById);
+	}
+
+	/**
+	 * @inheritDoc
+	 */
+	@Override
 	public void deleteById(ID id) {
 		findById(id).ifPresent(this::delete);
 	}
@@ -133,6 +140,7 @@ public abstract class BaseCrudRepository<T, ID> implements CrudRepository<T, ID>
 		return iterable != null ? iterable : Collections::emptyIterator;
 	}
 
+	@SuppressWarnings("all")
 	protected abstract ID resolveId(T entity);
 
 }
