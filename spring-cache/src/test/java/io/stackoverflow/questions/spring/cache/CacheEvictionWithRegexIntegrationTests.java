@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.function.BiFunction;
 import java.util.regex.Pattern;
@@ -43,7 +44,6 @@ import org.springframework.cache.CacheableService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -79,8 +79,18 @@ import lombok.ToString;
  * to evict a collection of keys matching a Regular Expression (REGEX).
  *
  * @author John Blum
+ * @see java.util.Map
+ * @see java.util.regex.Pattern
  * @see org.springframework.cache.Cache
  * @see org.springframework.cache.CacheManager
+ * @see org.springframework.cache.CacheableService
+ * @see org.springframework.cache.annotation.Cacheable
+ * @see org.springframework.cache.annotation.CacheEvict
+ * @see org.springframework.cache.annotation.EnableCaching
+ * @see org.springframework.context.annotation.Bean
+ * @see org.springframework.context.annotation.Configuration
+ * @see org.springframework.context.annotation.Profile
+ * @see org.springframework.test.context.ActiveProfiles
  * @see org.springframework.test.context.ContextConfiguration
  * @see org.springframework.test.context.junit4.SpringRunner
  * @since 1.0.0
@@ -173,24 +183,6 @@ public class CacheEvictionWithRegexIntegrationTests {
 		return location;
 	}
 
-	@Configuration
-	@EnableCaching
-	static class TestConfiguration {
-
-		@Bean
-		BeanPostProcessor cacheManagerDecoratingBeanPostProcessor(
-			@Autowired(required = false) BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
-
-			return CacheManagerDecoratingBeanPostProcessor
-				.from(cacheManager -> RegexBasedEvictionCacheManager.from(cacheManager, cacheKeysFunction));
-		}
-
-		@Bean
-		GameService gameService() {
-			return new GameService();
-		}
-	}
-
 	@Service
 	static class GameService extends CacheableService {
 
@@ -239,23 +231,30 @@ public class CacheEvictionWithRegexIntegrationTests {
 	}
 
 	@Configuration
+	@EnableCaching
+	static class TestConfiguration {
+
+		@Bean
+		BeanPostProcessor cacheManagerDecoratingBeanPostProcessor(
+			@Autowired(required = false) BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
+
+			return CacheManagerDecoratingBeanPostProcessor
+				.from(cacheManager -> RegexBasedEvictionCacheManager.from(cacheManager, cacheKeysFunction));
+		}
+
+		@Bean
+		GameService gameService() {
+			return new GameService();
+		}
+	}
+
+	@Configuration
 	@Profile("ConcurrentMapCache")
 	static class ConcurrentMapTestConfiguration {
 
 		@Bean
 		CacheManager cacheManager() {
 			return new ConcurrentMapCacheManager(CACHE_NAME);
-		}
-
-		@Bean
-		BiFunction<Cache, Object, List<Object>> cacheKeysFunction() {
-
-			return (cache, key) -> {
-
-				Assert.isInstanceOf(ConcurrentMapCache.class, cache);
-
-				return new ArrayList<>(((ConcurrentMapCache) cache).getNativeCache().keySet());
-			};
 		}
 	}
 
@@ -433,7 +432,14 @@ public class CacheEvictionWithRegexIntegrationTests {
 		}
 
 		protected static final BiFunction<Cache, Object, List<Object>> DEFAULT_CACHE_TO_KEYS_FUNCTION =
-			(cache, key) -> Collections.singletonList(key);
+			(cache, key) -> {
+
+				Object nativeCache = cache.getNativeCache();
+
+				return nativeCache instanceof Map<?, ?>
+					? new ArrayList<>(((Map<?, ?>) nativeCache).keySet())
+					: Collections.singletonList(key);
+			};
 
 		@Getter(AccessLevel.PROTECTED)
 		private final BiFunction<Cache, Object, List<Object>> cacheKeysFunction;
@@ -488,7 +494,7 @@ public class CacheEvictionWithRegexIntegrationTests {
 				List<Object> allKeys = getCacheKeysFunction().apply(cache, key);
 
 				// Filter all Cache keys based on its String representation matching the Regular Expression
-				// (REGEX) Pattern and return only those cache keys.
+				// (REGEX) Pattern and return only those cache keys that match.
 				return allKeys.stream()
 					.filter(keyFromCache -> isMatch(keyFromCache, keyPattern))
 					.collect(Collectors.toList());
