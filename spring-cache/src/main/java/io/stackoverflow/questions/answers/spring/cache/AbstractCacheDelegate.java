@@ -22,7 +22,6 @@ import org.springframework.cache.Cache;
 import org.springframework.lang.NonNull;
 import org.springframework.util.Assert;
 
-import lombok.AccessLevel;
 import lombok.Getter;
 
 /**
@@ -35,7 +34,7 @@ import lombok.Getter;
  */
 public class AbstractCacheDelegate implements Cache {
 
-	@Getter(AccessLevel.PROTECTED)
+	@Getter
 	private final Cache cache;
 
 	public AbstractCacheDelegate(@NonNull Cache cache) {
