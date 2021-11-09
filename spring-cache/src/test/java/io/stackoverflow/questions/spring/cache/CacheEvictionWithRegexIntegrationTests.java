@@ -18,12 +18,15 @@ package io.stackoverflow.questions.spring.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -37,37 +40,38 @@ import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.shiro.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.CacheableService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.gemfire.cache.GemfireCache;
 import org.springframework.data.gemfire.cache.config.EnableGemfireCaching;
-import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.config.annotation.EnableCachingDefinedRegions;
 import org.springframework.data.redis.cache.RedisCache;
-import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.geode.boot.autoconfigure.ClientCacheAutoConfiguration;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.util.Assert;
 
 import io.stackoverflow.questions.answers.spring.cache.AbstractCacheDelegate;
 import io.stackoverflow.questions.answers.spring.cache.AbstractCacheManagerDelegate;
-import io.stackoverflow.questions.answers.spring.cache.CacheManagerDecoratingBeanPostProcessor;
+import io.stackoverflow.questions.answers.spring.cache.annotation.EnableCacheDecoration;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -78,9 +82,19 @@ import lombok.ToString;
  * Integration Tests demonstrating the use of a custom {@link CacheManager} and {@link Cache}
  * to evict a collection of keys matching a Regular Expression (REGEX).
  *
+ * I like *Ori's answer because it encapsulates the logic in AOP Advice, is a pretty easy,
+ * simple and a quick solution to implement, and the approach can be used with different
+ * *caching providers*, with just a bit of extra work/code.
+ *
+ * Alternatively, users who may have complex application architectures using multiple *caching providers*,
+ * which can be common when the application uses different types of caches across different layers of
+ * the application (e.g. web vs. service vs. data access layers), or when different parts of the application
+ * have different SLAs.
+ *
  * @author John Blum
  * @see java.util.Map
  * @see java.util.regex.Pattern
+ * @see org.springframework.boot.autoconfigure.EnableAutoConfiguration
  * @see org.springframework.cache.Cache
  * @see org.springframework.cache.CacheManager
  * @see org.springframework.cache.CacheableService
@@ -93,12 +107,14 @@ import lombok.ToString;
  * @see org.springframework.test.context.ActiveProfiles
  * @see org.springframework.test.context.ContextConfiguration
  * @see org.springframework.test.context.junit4.SpringRunner
+ * @see <a href="https://stackoverflow.com/questions/69829332/is-it-possible-to-cacheevict-keys-that-match-a-pattern">Is it possible to @CacheEvict keys that match a pattern</a>
  * @since 1.0.0
  */
 @RunWith(SpringRunner.class)
 @ContextConfiguration
-@ActiveProfiles("ConcurrentMapCache")
-//@ActiveProfiles("ApacheGeodeCache")
+//@ActiveProfiles({ "caching", "simple-cache" })
+@ActiveProfiles({ "caching", "redis-cache" })
+//@ActiveProfiles({ "caching", "apache-geode-cache" })
 @SuppressWarnings("unused")
 public class CacheEvictionWithRegexIntegrationTests {
 
@@ -138,13 +154,13 @@ public class CacheEvictionWithRegexIntegrationTests {
 		assertThat(assertCacheHitAndReturnLocationOf(greenPlayer)).isEqualTo(greenPlayerLocation);
 		assertThat(assertCacheHitAndReturnLocationOf(bluePlayer)).isEqualTo(bluePlayerLocation);
 
-		// Evict a single Player from the cache (kill a Player in the game).
-		getGameService().kill(bluePlayer);
+		// Evict a single Player from the cache (respawn a Player in the game).
+		getGameService().respawn(bluePlayer);
 
 		assertThat(assertCacheMissAndReturnLocationOf(bluePlayer)).isNotEqualTo(bluePlayerLocation);
 
-		// Evict all red Players from the cache (kill all red Players in the game) using REGEX 'red.*'
-		getGameService().kill("red.*");
+		// Evict all red Players from the cache (respawn all red Players in the game) using REGEX 'red.*'
+		getGameService().respawn("red.*");
 
 		Location newRedPlayerOneLocation = assertCacheMissAndReturnLocationOf(redPlayerOne);
 
@@ -183,6 +199,8 @@ public class CacheEvictionWithRegexIntegrationTests {
 		return location;
 	}
 
+	// APPLICATION DOMAIN TYPES
+
 	@Service
 	static class GameService extends CacheableService {
 
@@ -201,7 +219,7 @@ public class CacheEvictionWithRegexIntegrationTests {
 		}
 
 		@CacheEvict(CACHE_NAME)
-		public void kill(@NonNull Object possibleRegexKeyOrPlayer) { }
+		public void respawn(@NonNull Object possibleRegexKeyOrPlayer) { }
 
 	}
 
@@ -223,23 +241,27 @@ public class CacheEvictionWithRegexIntegrationTests {
 	@ToString
 	@EqualsAndHashCode
 	@RequiredArgsConstructor(staticName = "at")
-	static class Location {
+	static class Location implements Serializable {
 
 		private final int x;
 		private final int y;
 
 	}
 
+	// TEST CONFIGURATION
+
 	@Configuration
 	@EnableCaching
+	@EnableCacheDecoration
 	static class TestConfiguration {
 
 		@Bean
-		BeanPostProcessor cacheManagerDecoratingBeanPostProcessor(
-			@Autowired(required = false) BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
+		Function<CacheManager, CacheManager> cacheManagerDecorator(
+				@Autowired(required = false) BiFunction<Cache, Object, List<Object>> cacheKeysFunction,
+				@Autowired(required = false) BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction) {
 
-			return CacheManagerDecoratingBeanPostProcessor
-				.from(cacheManager -> RegexBasedEvictionCacheManager.from(cacheManager, cacheKeysFunction));
+			return cacheManager -> RegexBasedEvictionCacheManager
+				.from(cacheManager, cacheKeysFunction, cacheEvictionFunction);
 		}
 
 		@Bean
@@ -249,29 +271,115 @@ public class CacheEvictionWithRegexIntegrationTests {
 	}
 
 	@Configuration
-	@Profile("ConcurrentMapCache")
-	static class ConcurrentMapTestConfiguration {
+	@Profile("simple-cache")
+	@EnableAutoConfiguration(exclude = { RedisAutoConfiguration.class, ClientCacheAutoConfiguration.class })
+	// NOTE: No extra logic is required to enable REGEX support in the ConcurrentMap-based caching provider
+	// implementation. The supportive caching infrastructure has all it needs.
+	static class SimpleCacheTestConfiguration { }
+
+	@Configuration
+	@Profile("redis-cache")
+	@EnableAutoConfiguration(exclude = ClientCacheAutoConfiguration.class)
+	static class RedisTestConfiguration {
+
+		private static final String REDIS_GLOB_PATTERN_SPECIAL_CHARACTERS = "?*^-\\";
 
 		@Bean
-		CacheManager cacheManager() {
-			return new ConcurrentMapCacheManager(CACHE_NAME);
+		RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
+			return builder -> builder.cacheDefaults(RedisCacheConfiguration.defaultCacheConfig().disableKeyPrefix());
+		}
+
+		/**
+		 * Using the {@link org.springframework.data.redis.core.RedisTemplate}, you can use
+		 * a {@link org.springframework.data.redis.connection.RedisConnection} in a callback to get all keys:
+		 *
+		 * <code>
+		 *  return (cache, key) -> {
+		 *
+		 *  	RedisCallback<List<Object>> getAllKeys =
+		 *  		connection -> new ArrayList<>(connection.keys(String.valueOf(key).getBytes()));
+		 *
+		 *		return redisTemplate.execute(getAllKeys);
+		 *
+		 * };
+		 * </code>
+		 */
+		@Bean
+		BiFunction<Cache, Object, List<Object>> cacheKeysFunction() {
+			return (cache, key) -> Collections.singletonList(key);
+		}
+
+		@Bean
+		BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction() {
+
+			return (cache, keys) -> {
+
+				String key = toGlobStylePattern(String.valueOf(keys.get(0)));
+
+				((RedisCache) cache).getNativeCache().clean(cache.getName(), key.getBytes());
+
+				return true;
+			};
+		}
+
+		private @NonNull String toGlobStylePattern(@NonNull String pattern) {
+
+			StringBuilder globPattern = new StringBuilder();
+
+			for (char c : pattern.toCharArray()) {
+				if (isAllowedRedisGlobStylePatternCharacter(c)) {
+					globPattern.append(c);
+				}
+			}
+
+			return globPattern.toString();
+		}
+
+		private boolean isAllowedRedisGlobStylePatternCharacter(char c) {
+			return Character.isAlphabetic(c) || REDIS_GLOB_PATTERN_SPECIAL_CHARACTERS.contains(String.valueOf(c));
+		}
+
+		/**
+		 * <code>
+		 * Optional.ofNullable(event)
+		 *	.map(ContextRefreshedEvent::getApplicationContext)
+		 *	.map(applicationContext -> applicationContext.getBean(CacheManager.class))
+		 *	.map(cacheManager -> cacheManager.getCache(CACHE_NAME))
+		 *	.filter(RegexBasedEvictionCache.class::isInstance)
+		 *	.map(RegexBasedEvictionCache.class::cast)
+		 *	.map(RegexBasedEvictionCache::getCache)
+		 *	.filter(RedisCache.class::isInstance)
+		 *	.map(RedisCache.class::cast)
+		 *	.map(Cache::getNativeCache)
+		 *	.filter(RedisCacheWriter.class::isInstance)
+		 *	.map(RedisCacheWriter.class::cast)
+		 *	.ifPresent(redisCacheWriter -> redisCacheWriter.clean(CACHE_NAME, "*".getBytes()));
+		 * </code>
+		 * @param event
+		 */
+		@EventListener(ContextRefreshedEvent.class)
+		@SuppressWarnings("all")
+		public void cleanRedisCacheOnStartup(@NonNull ContextRefreshedEvent event) {
+			RedisCacheWriter.nonLockingRedisCacheWriter(event.getApplicationContext()
+				.getBean(RedisConnectionFactory.class))
+					.clean(CACHE_NAME, "*".getBytes());
 		}
 	}
 
 	@Configuration
-	@Profile("ApacheGeodeCache")
-	@EnableGemfireCaching
-	@ClientCacheApplication(name = "CacheEvictionWithRegexUsingApacheGeode")
+	@Profile("apache-geode-cache")
+	@EnableAutoConfiguration(exclude = RedisAutoConfiguration.class)
 	@EnableCachingDefinedRegions(clientRegionShortcut = ClientRegionShortcut.LOCAL)
-	static class GeodeTestConfiguration {
+	@EnableGemfireCaching
+	static class ApacheGeodeTestConfiguration {
 
 		@Bean
 		@SuppressWarnings("unchecked")
+			// NOTE: Extra logic is required to handle the difference between a {@literal peer} {@link Cache}
+			// and a {@link ClientCache} in Apache Geode when resolving all keys in the backing cache {@link Region}.
 		BiFunction<Cache, Object, List<Object>> cacheKeysFunction() {
 
 			return (cache, key) -> {
-
-				Assert.isInstanceOf(GemfireCache.class, cache);
 
 				Region<Object, Object> region = ((GemfireCache) cache).getNativeCache();
 
@@ -285,66 +393,55 @@ public class CacheEvictionWithRegexIntegrationTests {
 			return region.getRegionService() instanceof ClientCache
 				&& StringUtils.hasText(region.getAttributes().getPoolName());
 		}
-	}
-
-	@Configuration
-	@Profile("RedisCache")
-	// NOTE: I am not that familiar with Redis, so I am not quite certain what I am doing here is 100% correct.
-	// Best to let Spring Boot handle all configuration for Redis.
-	// However, I am not using Spring Boot in my tests and this test class is purely for demonstration purposes.
-	static class RedisTestConfiguration {
 
 		@Bean
-		RedisConnectionFactory connectionFactory() {
-			return new LettuceConnectionFactory();
-		}
-
-		@Bean
-		RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
-
-			RedisTemplate<Object, Object> template = new RedisTemplate<>();
-
-			template.setConnectionFactory(connectionFactory);
-
-			return template;
-		}
-
-		@Bean
-		CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-			return RedisCacheManager.builder(connectionFactory)
-				.initialCacheNames(Collections.singleton(CACHE_NAME))
-				.build();
-		}
-
-		@Bean
-		BiFunction<Cache, Object, List<Object>> cacheKeysFunction(RedisTemplate<Object, Object> redisTemplate) {
-
-			return (cache, key) -> {
-
-				Assert.isInstanceOf(RedisCache.class, cache);
-
-				return new ArrayList<>(redisTemplate.opsForHash().keys(cache.getName()));
+		@SuppressWarnings("unchecked")
+		// NOTE: An optimal Apache Geode cache Region operation for evicting all matching keys.
+		// Apache Geode does not support evicting keys based on a REGEX Pattern, unlike Redis.
+		BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction() {
+			return (cache, keys) -> {
+				((Region<Object, ?>) cache.getNativeCache()).removeAll(keys);
+				return true;
 			};
 		}
 	}
 
+	// INFRASTRUCTURE COMPONENTS
+
+	/**
+	 * Spring {@link CacheManager} implementation that uses a Regular Expression (REGEX) {@link Pattern}
+	 * to match cache entries by key for eviction.
+	 *
+	 * @see io.stackoverflow.questions.answers.spring.cache.AbstractCacheManagerDelegate
+	 */
 	static class RegexBasedEvictionCacheManager extends AbstractCacheManagerDelegate {
 
 		static @NonNull RegexBasedEvictionCacheManager from(@NonNull CacheManager cacheManager,
-				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
+				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction,
+				@Nullable BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction) {
 
-			return new RegexBasedEvictionCacheManager(cacheManager, cacheKeysFunction);
+			return new RegexBasedEvictionCacheManager(cacheManager, cacheKeysFunction, cacheEvictionFunction);
 		}
 
+		// BiFunction that accepts a Cache, the original Key and returns a List of Keys.
 		@Getter(AccessLevel.PROTECTED)
 		private final BiFunction<Cache, Object, List<Object>> cacheKeysFunction;
 
+		// BiFunction that accepts a Cache and List of Keys to evict, then returns a boolean value
+		// indicating whether the eviction was a success.
+		@Getter(AccessLevel.PROTECTED)
+		private final BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction;
+
+		private final Map<Cache, RegexBasedEvictionCache> decoratedCacheMap = new ConcurrentHashMap<>();
+
 		RegexBasedEvictionCacheManager(@NonNull CacheManager cacheManager,
-				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
+				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction,
+				@Nullable BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction) {
 
 			super(cacheManager);
 
 			this.cacheKeysFunction = cacheKeysFunction;
+			this.cacheEvictionFunction = cacheEvictionFunction;
 		}
 
 		/**
@@ -361,33 +458,63 @@ public class CacheEvictionWithRegexIntegrationTests {
 		 * @see #getCacheManager()
 		 */
 		@Override
-		public Cache getCache(@NonNull String name) {
+		public @Nullable Cache getCache(@NonNull String name) {
 
 			Cache cache = getCacheManager().getCache(name);
 
 			return cache != null
-				? RegexBasedEvictionCache.from(cache, getCacheKeysFunction())
+				? resolveRegexBasedEvictionCache(cache)
 				: cache;
+		}
+
+		private Cache resolveRegexBasedEvictionCache(@NonNull Cache cache) {
+			return this.decoratedCacheMap.computeIfAbsent(cache, cacheKey ->
+				RegexBasedEvictionCache.from(cacheKey, getCacheKeysFunction(), getCacheEvictionFunction()));
 		}
 	}
 
+	/**
+	 * Spring {@link Cache} implementation that uses a Regular Expression (REGEX) {@link Pattern}
+	 * to match cache entries by key for eviction.
+	 *
+	 * @see io.stackoverflow.questions.answers.spring.cache.AbstractCacheDelegate
+	 * @see org.springframework.cache.Cache
+	 */
 	static class RegexBasedEvictionCache extends AbstractCacheDelegate {
 
 		static @NonNull RegexBasedEvictionCache from(@NonNull Cache cache,
-				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
+				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction,
+				@Nullable BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction) {
 
-			return new RegexBasedEvictionCache(cache, cacheKeysFunction);
+			return new RegexBasedEvictionCache(cache, cacheKeysFunction, cacheEvictionFunction);
 		}
+
+		// Default Cache eviction algorithm.
+		protected static final BiFunction<Cache, List<Object>, Boolean> DEFAULT_CACHE_EVICTION_FUNCTION =
+			(cache, keys) -> {
+				keys.forEach(cache::evict);
+				return true;
+			};
+
+		// BiFunction that accepts a Cache and List of Keys to evict, then returns a boolean value
+		// indicating whether the eviction was a success.
+		@Getter(AccessLevel.PROTECTED)
+		private final BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction;
 
 		@Getter(AccessLevel.PROTECTED)
 		private final RegexCacheKeysResolver cacheKeysResolver;
 
 		RegexBasedEvictionCache(@NonNull Cache cache,
-				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction) {
+				@Nullable BiFunction<Cache, Object, List<Object>> cacheKeysFunction,
+				@Nullable BiFunction<Cache, List<Object>, Boolean> cacheEvictionFunction) {
 
 			super(cache);
 
 			this.cacheKeysResolver = RegexCacheKeysResolver.from(cacheKeysFunction);
+
+			this.cacheEvictionFunction = cacheEvictionFunction != null
+				? cacheEvictionFunction
+				: DEFAULT_CACHE_EVICTION_FUNCTION;
 		}
 
 		/**
@@ -406,13 +533,27 @@ public class CacheEvictionWithRegexIntegrationTests {
 		@Override
 		public void evict(@NonNull Object key) {
 
-			List<Object> keys = getCacheKeysResolver().resolve(getCache(), key);
+			Cache cache = getCache();
 
-			keys.forEach(super::evict);
+			List<Object> keys = getCacheKeysResolver().resolve(cache, key);
+
+			getCacheEvictionFunction().apply(cache, keys);
 		}
 	}
 
-	static class RegexCacheKeysResolver {
+	/**
+	 * Strategy interface used to resolve a {@link List} all {@link Object keys} from the given {@link Cache}
+	 * matching the given {@link Object key} {@link Pattern} (or prefix, namespace, etc).
+	 *
+	 * @see java.lang.FunctionalInterface
+	 * @see <a href="https://en.wikipedia.org/wiki/Strategy_pattern">Strategy Software Design Pattern</a>
+	 */
+	@FunctionalInterface
+	interface CacheKeysResolver {
+		List<Object> resolve(Cache cache, Object key);
+	}
+
+	static class RegexCacheKeysResolver implements CacheKeysResolver {
 
 		/**
 		 * Factory method used to construct a new instance of the {@link RegexCacheKeysResolver} initialized with
@@ -431,16 +572,19 @@ public class CacheEvictionWithRegexIntegrationTests {
 			return new RegexCacheKeysResolver(cacheKeysFunction);
 		}
 
-		protected static final BiFunction<Cache, Object, List<Object>> DEFAULT_CACHE_TO_KEYS_FUNCTION =
+		// Many underlying Cache implementations implement the java.util.Map interface (handle accordingly).
+		// For Example: Apache Geode cache Region: https://geode.apache.org/releases/latest/javadoc/org/apache/geode/cache/Region.html
+		protected static final BiFunction<Cache, Object, List<Object>> DEFAULT_CACHE_KEYS_FUNCTION =
 			(cache, key) -> {
 
 				Object nativeCache = cache.getNativeCache();
 
-				return nativeCache instanceof Map<?, ?>
+				return nativeCache instanceof Map
 					? new ArrayList<>(((Map<?, ?>) nativeCache).keySet())
 					: Collections.singletonList(key);
 			};
 
+		// BiFunction that accepts a Cache, the original Key and returns a List of Keys based on REGEX Pattern matching.
 		@Getter(AccessLevel.PROTECTED)
 		private final BiFunction<Cache, Object, List<Object>> cacheKeysFunction;
 
@@ -458,7 +602,7 @@ public class CacheEvictionWithRegexIntegrationTests {
 
 			this.cacheKeysFunction = cacheKeysFunction != null
 				? cacheKeysFunction
-				: DEFAULT_CACHE_TO_KEYS_FUNCTION;
+				: DEFAULT_CACHE_KEYS_FUNCTION;
 		}
 
 		/**
@@ -481,12 +625,14 @@ public class CacheEvictionWithRegexIntegrationTests {
 		 * @see java.util.regex.Pattern
 		 * @see java.util.List
 		 */
-		List<Object> resolve(@NonNull Cache cache, @NonNull Object key) {
+		@Override
+		public List<Object> resolve(@NonNull Cache cache, @NonNull Object key) {
 
 			try {
 
-				// Only if the Regular Expression (REGEX) Pattern compiles should we go onto get all keys from the cache,
-				// which, depending on the cache implementation, could be expensive (e.g. memory, network, etc).
+				// If and only if the Regular Expression (REGEX) Pattern compiles should we go on to get all keys
+				// from the Cache, which, depending on the cache implementation, could be resource expensive
+				// (e.g. memory, network, etc).
 				Pattern keyPattern = Pattern.compile(String.valueOf(key));
 
 				// The Pattern compiled so now go get all the available keys in the cache; i.e. all keys
@@ -494,7 +640,7 @@ public class CacheEvictionWithRegexIntegrationTests {
 				List<Object> allKeys = getCacheKeysFunction().apply(cache, key);
 
 				// Filter all Cache keys based on its String representation matching the Regular Expression
-				// (REGEX) Pattern and return only those cache keys that match.
+				// (REGEX) Pattern and return only those Cache keys that match.
 				return allKeys.stream()
 					.filter(keyFromCache -> isMatch(keyFromCache, keyPattern))
 					.collect(Collectors.toList());
