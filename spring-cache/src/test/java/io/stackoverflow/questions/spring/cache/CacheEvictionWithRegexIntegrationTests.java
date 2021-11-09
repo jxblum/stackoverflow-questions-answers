@@ -112,8 +112,8 @@ import lombok.ToString;
  */
 @RunWith(SpringRunner.class)
 @ContextConfiguration
-//@ActiveProfiles({ "caching", "simple-cache" })
-@ActiveProfiles({ "caching", "redis-cache" })
+@ActiveProfiles({ "caching", "simple-cache" })
+//@ActiveProfiles({ "caching", "redis-cache" })
 //@ActiveProfiles({ "caching", "apache-geode-cache" })
 @SuppressWarnings("unused")
 public class CacheEvictionWithRegexIntegrationTests {
