@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  */
-
 package org.springframework.cache;
 
 import java.util.concurrent.atomic.AtomicBoolean;
