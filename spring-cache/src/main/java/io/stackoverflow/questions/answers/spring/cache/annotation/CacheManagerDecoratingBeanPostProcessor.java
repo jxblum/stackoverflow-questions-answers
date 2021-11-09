@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-package io.stackoverflow.questions.answers.spring.cache;
+package io.stackoverflow.questions.answers.spring.cache.annotation;
 
 import java.util.function.Function;
 
@@ -57,6 +57,10 @@ public class CacheManagerDecoratingBeanPostProcessor implements BeanPostProcesso
 		return new CacheManagerDecoratingBeanPostProcessor(cacheManagerDecoratorFunction);
 	}
 
+	/**
+	 * Using a Java {@link Function} allows multiple {@link CacheManager} decorations to be {@literal composed}.
+	 * @see <a href="https://en.wikipedia.org/wiki/Composite_pattern">Composite Software Design Pattern</a>
+	 */
 	@Getter(AccessLevel.PROTECTED)
 	private final Function<CacheManager, CacheManager> cacheManagerDecoratorFunction;
 
