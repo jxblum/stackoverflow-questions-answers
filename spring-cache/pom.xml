@@ -14,7 +14,7 @@
 	<artifactId>spring-cache</artifactId>
 	<packaging>jar</packaging>
 
-	<name>spring-cache-answers</name>
+	<name>spring-cache</name>
 	<description>This module provides answers and examples for spring-cache questions.</description>
 
 	<properties>
