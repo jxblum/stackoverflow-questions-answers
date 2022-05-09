@@ -73,7 +73,7 @@ import lombok.ToString;
 @RunWith(SpringRunner.class)
 @ContextConfiguration
 @SuppressWarnings("unused")
-public class CacheKeyDeterminedFromReturnValueIntegrationTests {
+public class ReturnValueCacheKeyIntegrationTests {
 
 	private Cache usersCache;
 
