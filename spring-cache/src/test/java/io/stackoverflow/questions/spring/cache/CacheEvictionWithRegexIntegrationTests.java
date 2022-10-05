@@ -108,6 +108,7 @@ import lombok.ToString;
  * @see org.springframework.test.context.ContextConfiguration
  * @see org.springframework.test.context.junit4.SpringRunner
  * @see <a href="https://stackoverflow.com/questions/69829332/is-it-possible-to-cacheevict-keys-that-match-a-pattern">Is it possible to @CacheEvict keys that match a pattern</a>
+ * @see <a href="https://stackoverflow.com/questions/73635324/evict-cache-for-multiple-keys-rather-than-all-in-spring-redis/73652368#73652368">Evict cache for multiple keys rather than all in Spring Redis</a>
  * @since 1.0.0
  */
 @RunWith(SpringRunner.class)
