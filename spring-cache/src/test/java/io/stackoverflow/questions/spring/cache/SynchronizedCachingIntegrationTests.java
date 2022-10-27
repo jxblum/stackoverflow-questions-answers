@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
@@ -77,11 +78,16 @@ import lombok.ToString;
 public class SynchronizedCachingIntegrationTests {
 
 	@Autowired
-	private UserService userService;
+	@Qualifier("userServiceOne")
+	private UserService userServiceOne;
+
+	@Autowired
+	@Qualifier("userServiceTwo")
+	private UserService userServiceTwo;
 
 	@Test
 	public void synchronizedCachingIsCorrect() throws Throwable {
-		TestFramework.runOnce(new SynchronizedCachingMultithreadedTestCase(this.userService));
+		TestFramework.runOnce(new SynchronizedCachingMultithreadedTestCase(this.userServiceOne, this.userServiceTwo));
 	}
 
 	@EnableCaching
@@ -95,7 +101,12 @@ public class SynchronizedCachingIntegrationTests {
 		}
 
 		@Bean
-		UserService userService() {
+		UserService userServiceOne() {
+			return new UserService();
+		}
+
+		@Bean
+		UserService userServiceTwo() {
 			return new UserService();
 		}
 	}
@@ -106,12 +117,24 @@ public class SynchronizedCachingIntegrationTests {
 
 		private final AtomicInteger counter = new AtomicInteger(0);
 
-		@Getter(AccessLevel.PACKAGE)
-		private final UserService userService;
+		@Getter(AccessLevel.PROTECTED)
+		private final UserService userServiceOne;
 
-		private SynchronizedCachingMultithreadedTestCase(@NonNull UserService userService) {
-			Assert.notNull(userService, "UserService is required");
-			this.userService = userService;
+		@Getter(AccessLevel.PROTECTED)
+		private final UserService userServiceTwo;
+
+		private SynchronizedCachingMultithreadedTestCase(@NonNull UserService userServiceOne,
+				@NonNull UserService userServiceTwo) {
+
+			Assert.notNull(userServiceOne, "The first UserService instance is required");
+			Assert.notNull(userServiceTwo, "The second UserService instance is required");
+
+			assertThat(userServiceOne)
+				.describedAs("UserService instance one is the same as UserService instance two")
+				.isNotSameAs(userServiceTwo);
+
+			this.userServiceOne = userServiceOne;
+			this.userServiceTwo = userServiceTwo;
 		}
 
 		@SuppressWarnings("all")
@@ -136,7 +159,7 @@ public class SynchronizedCachingIntegrationTests {
 
 			Function<User, User> userProcessor = newUserProcessor(2);
 
-			User user = getUserService().findUserByName(TEST_USERNAME, userProcessor).orElse(null);
+			User user = getUserServiceOne().findUserByName(TEST_USERNAME, userProcessor).orElse(null);
 
 			assertThat(user).isNotNull();
 			assertThat(user.getName()).isEqualTo(TEST_USERNAME);
@@ -154,7 +177,7 @@ public class SynchronizedCachingIntegrationTests {
 
 			Function<User, User> userProcessor = newUserProcessor(3);
 
-			User user = getUserService().findUserByName(TEST_USERNAME, userProcessor).orElse(null);
+			User user = getUserServiceTwo().findUserByName(TEST_USERNAME, userProcessor).orElse(null);
 
 			assertThat(user).isNotNull();
 			assertThat(user.getName()).isEqualTo(TEST_USERNAME);
