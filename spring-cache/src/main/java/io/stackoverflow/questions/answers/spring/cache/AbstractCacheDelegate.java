@@ -32,7 +32,7 @@ import lombok.Getter;
  * @see org.springframework.cache.Cache
  * @since 1.0.0
  */
-public class AbstractCacheDelegate implements Cache {
+public abstract class AbstractCacheDelegate implements Cache {
 
 	@Getter
 	private final Cache cache;
