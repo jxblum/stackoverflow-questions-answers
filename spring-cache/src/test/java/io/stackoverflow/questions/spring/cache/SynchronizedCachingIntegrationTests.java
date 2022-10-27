@@ -121,7 +121,10 @@ public class SynchronizedCachingIntegrationTests {
 
 				@Override
 				public User apply(User user) {
-					assertThat(counter.incrementAndGet()).isOne();
+					assertThat(counter.incrementAndGet())
+						.describedAs("Thread [%s] - expected [1]; but was [%d]",
+							Thread.currentThread().getName(), counter.get())
+						.isOne();
 					waitForTick(2);
 					assertThat(counter.decrementAndGet()).isZero();
 					return user;
@@ -154,10 +157,10 @@ public class SynchronizedCachingIntegrationTests {
 
 			Function<User, User> userProcessor = newUserProcessor(3);
 
-			User user = getUserService().findUserByName(TEST_USERNAME, userProcessor).orElse(null);
+			User user = getUserService().findUserByName("JaneDoe", userProcessor).orElse(null);
 
 			assertThat(user).isNotNull();
-			assertThat(user.getName()).isEqualTo(TEST_USERNAME);
+			assertThat(user.getName()).isEqualTo("JaneDoe");
 
 			// No interaction on the userProcessor Function implies a cache hit
 			verifyNoInteractions(userProcessor);
