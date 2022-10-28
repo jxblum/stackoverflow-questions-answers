@@ -38,12 +38,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,10 +108,16 @@ public class CachingConfigurerBeansIntegrationTests {
 	private static final boolean DEBUG = false;
 
 	@Autowired
+	private CacheErrorHandler cacheErrorHandler;
+
+	@Autowired
 	private Logger mockLogger;
 
 	@Autowired
 	private UserService userService;
+
+	@Autowired
+	private TestBean testBean;
 
 	@Test
 	public void cacheErrorHandlingWorksProperly() {
@@ -139,12 +147,30 @@ public class CachingConfigurerBeansIntegrationTests {
 		verifyNoMoreInteractions(getMockLogger());
 	}
 
+	@Test
+	public void cacheErrorHandlerConfigurationIsCorrect() {
+
+		assertThat(this.cacheErrorHandler).isInstanceOf(TestCacheErrorHandler.class);
+
+		// Asserts that (and proves) the CacheErrorHandler Spring "bean" is the "same object" as the CacheErrorHandler object
+		// created from calling the CachingConfigurer.errorHandler() method by Spring;s Cache (AOP) infrastructure.
+		assertThat(this.cacheErrorHandler).isSameAs(TestCacheErrorHandler.INSTANCE.get());
+
+		// Asserts that (and proves) the CacheErrorHandler Spring "bean" can also be injected (autowired) with
+		// other bean dependencies (collaborates) declared and managed in the Spring container using setter injection.
+		assertThat(this.cacheErrorHandler)
+			.asInstanceOf(InstanceOfAssertFactories.type(TestCacheErrorHandler.class))
+			.extracting(TestCacheErrorHandler::getTestBean)
+			.isSameAs(this.testBean);
+	}
+
 	@EnableCaching
 	@SpringBootConfiguration
 	//@SpringBootConfiguration(proxyBeanMethods = false)
 	@Profile("cache-infra-beans-config")
 	static class TestConfiguration extends MockCachingInfrastructureConfiguration implements CachingConfigurer {
 
+		@Bean
 		@Override
 		public CacheErrorHandler errorHandler() {
 			return new TestCacheErrorHandler(mockLogger());
@@ -158,6 +184,11 @@ public class CachingConfigurerBeansIntegrationTests {
 		@Bean
 		UserService userService() {
 			return new UserService();
+		}
+
+		@Bean
+		TestBean testBean() {
+			return new TestBean();
 		}
 
 		@Override
@@ -202,12 +233,27 @@ public class CachingConfigurerBeansIntegrationTests {
 		}
 	}
 
-	@RequiredArgsConstructor
 	static class TestCacheErrorHandler extends SimpleCacheErrorHandler {
 
-		@lombok.NonNull
+		static final AtomicReference<CacheErrorHandler> INSTANCE = new AtomicReference<>();
+
 		@Getter(AccessLevel.PACKAGE)
 		private final Logger logger;
+
+		@Getter
+		@Autowired
+		private TestBean testBean;
+
+		TestCacheErrorHandler(@NonNull Logger logger) {
+
+			Assert.notNull(logger, "Logger must not be null");
+
+			this.logger = logger;
+
+			if (!INSTANCE.compareAndSet(null, this)) {
+				throw new IllegalStateException("The TestCacheErrorHandler must be a singleton");
+			}
+		}
 
 		@Override
 		public void handleCacheGetError(@NonNull RuntimeException cause, @NonNull Cache cache, @NonNull Object key) {
@@ -215,6 +261,8 @@ public class CachingConfigurerBeansIntegrationTests {
 				key, cache.getName()), cause);
 		}
 	}
+
+	static class TestBean { }
 
 	static class MockCachingInfrastructureConfiguration {
 
