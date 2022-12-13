@@ -45,6 +45,7 @@
 
 	<modules>
 		<module>core-java</module>
+		<module>spring-boot-default-caching</module>
 		<module>spring-core</module>
 		<module>spring-cache</module>
 		<module>spring-geode</module>
