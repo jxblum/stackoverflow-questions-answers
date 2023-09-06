@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.6</version>
+		<version>3.1.3</version>
 	</parent>
 
 	<groupId>io.stackoverflow.questions</groupId>
@@ -36,6 +36,7 @@
 				<role>Spring Data Team</role>
 				<role>Spring Boot for Apache Geode (SBDG) Project Lead (Committer)</role>
 				<role>Spring Data for Apache Geode (SDG) Project Lead (Committer)</role>
+				<role>Spring Data Redis Project Lead (Committer)</role>
 				<role>Spring Session for Apache Geode (SSDG) Project Lead (Committer)</role>
 				<role>Spring Test for Apache Geode (STDG) Project Lead (Committer)</role>
 				<role>Apache Geode Committer</role>
