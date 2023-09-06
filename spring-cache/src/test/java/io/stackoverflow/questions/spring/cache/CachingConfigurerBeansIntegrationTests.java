@@ -94,6 +94,7 @@ import lombok.ToString;
  * @see org.springframework.test.context.ActiveProfiles
  * @see org.springframework.test.context.junit.jupiter.SpringExtension
  * @see <a href="https://stackoverflow.com/questions/74227543/how-to-inject-a-bean-into-cacheerrorhandler">How to inject a bean into CacheErrorHandler</a>
+ * @see <a href="https://stackoverflow.com/questions/76936023/spring-boot-3-unable-to-gracefully-fail-and-recover-on-redis-connection-issue">Spring Boot 3: Unable to gracefully fail and recover on Redis connection issue</a>
  * @since 0.1.0
  */
 @ActiveProfiles("cache-infra-beans-config")
@@ -131,7 +132,7 @@ public class CachingConfigurerBeansIntegrationTests {
 
 		assertThat(createdJonDoe).isEqualTo(jonDoe);
 		assertThat(createdJonDoe).isNotSameAs(jonDoe); // User "JonDoe" was created due to "Users" Cache error
-		assertThat(getUserService().isCacheMiss()).isTrue(); // Cache error results in findOCreateUserByName(..) UserService method invocation
+		assertThat(getUserService().isCacheMiss()).isTrue(); // Cache error resulted in findOrCreateUserByName(..) UserService method invocation
 
 		verify(getMockLogger(), times(1))
 			.warn(eq("Failed to get value for key [JonDoe] in cache [Users]"), isA(CacheException.class));
@@ -194,7 +195,11 @@ public class CachingConfigurerBeansIntegrationTests {
 		}
 
 		private boolean isUsersCache(Cache cache) {
-			return cache.getName().equals("Users");
+			return "Users".equals(nullSafeCacheName(cache));
+		}
+
+		private String nullSafeCacheName(Cache cache) {
+			return cache != null ? cache.getName() : null;
 		}
 
 		private boolean triggerCacheException(AtomicInteger counter) {
@@ -259,7 +264,7 @@ public class CachingConfigurerBeansIntegrationTests {
 			doReturn(cacheName).when(mockCache).getName();
 			doReturn(cacheMap).when(mockCache).getNativeCache();
 
-			// Mocked ache.get(..) ops
+			// Mocked cache.get(..) ops
 			doAnswer(invocation -> new SimpleValueWrapper(cacheMap.get(invocation.getArgument(0))))
 				.when(mockCache).get(any());
 
