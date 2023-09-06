@@ -17,10 +17,15 @@
     <name>user-domain</name>
     <description>User Application Domain</description>
 
+    <properties>
+        <spring-data-geode.version>3.0.0-M6</spring-data-geode.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.data</groupId>
             <artifactId>spring-data-geode</artifactId>
+            <version>${spring-data-geode.version}</version>
         </dependency>
     </dependencies>
 
