@@ -59,14 +59,21 @@
 		<maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
 		<maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
 		<junit.version>4.13.2</junit.version>
-		<spring-geode.version>1.7.5</spring-geode.version>
+		<spring-geode.version>2.0.0-M5</spring-geode.version>
 	</properties>
 
 	<repositories>
+<!--
 		<repository>
-			<id>spring-libs-snapshot</id>
-			<name>Spring libs-snapshot</name>
-			<url>https://repo.spring.io/libs-snapshot</url>
+			<id>spring-snapshot</id>
+			<name>Spring Snapshot</name>
+			<url>https://repo.spring.io/snapshot</url>
+		</repository>
+-->
+		<repository>
+			<id>spring-milestone</id>
+			<name>Spring Milestone</name>
+			<url>https://repo.spring.io/milestone</url>
 		</repository>
 	</repositories>
 
